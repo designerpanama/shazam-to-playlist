@@ -1,0 +1,5 @@
+eel
+soundcard
+soundfile
+shazamio
+numpy

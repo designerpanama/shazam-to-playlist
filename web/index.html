@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shazam to Playlist</title>
+  
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <script type="text/javascript" src="/eel.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+    
+    body {
+      background-color: #121218; 
+      /* Минималистичный фоновый паттерн с эквалайзером */
+      background-image: url("data:image/svg+xml,%3Csvg width='120' height='120' viewBox='0 0 120 120' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%231f1f2a' opacity='0.7'%3E%3Crect x='10' y='50' width='4' height='20' rx='2'/%3E%3Crect x='20' y='35' width='4' height='50' rx='2'/%3E%3Crect x='30' y='20' width='4' height='80' rx='2'/%3E%3Crect x='40' y='40' width='4' height='40' rx='2'/%3E%3Crect x='50' y='55' width='4' height='10' rx='2'/%3E%3Crect x='70' y='50' width='4' height='20' rx='2'/%3E%3Crect x='80' y='35' width='4' height='50' rx='2'/%3E%3Crect x='90' y='20' width='4' height='80' rx='2'/%3E%3Crect x='100' y='40' width='4' height='40' rx='2'/%3E%3Crect x='110' y='55' width='4' height='10' rx='2'/%3E%3C/g%3E%3C/svg%3E");
+      color: #f4f4f5;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      width: 100vw; 
+      height: 100vh; 
+      overflow: hidden; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center;
+      user-select: none;
+      margin: 0;
+      padding: 0;
+    }
+    .font-mono-code { font-family: 'JetBrains Mono', monospace; }
+    
+    /* Тонкий аккуратный скроллбар */
+    .modern-scrollbar::-webkit-scrollbar { width: 5px; }
+    .modern-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .modern-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 9999px; }
+    .modern-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+
+    #appWindow { 
+      width: 100%; 
+      height: 100%; 
+      max-width: 410px;
+      max-height: 680px;
+      background: #121218; 
+      display: flex; 
+      flex-direction: column; 
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
+      overflow: hidden; 
+    }
+    #titleBar { background: #181820; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding: 12px 16px; border-radius: 12px 12px 0 0; flex-shrink: 0; }
+    #displayPanel { margin: 12px 16px 8px; background: #0c0d12; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 14px; padding: 12px 14px; flex-shrink: 0; }
+    
+    #trackListContainer { 
+      background: rgba(24, 24, 32, 0.45); 
+      border: 1px solid rgba(255, 255, 255, 0.04); 
+      border-radius: 14px; 
+      margin: 6px 16px; 
+      padding: 8px; 
+      flex: 1; 
+      overflow-y: auto; 
+      min-height: 0; 
+    }
+  </style>
+</head>
+<body id="appBody">
+
+  <div id="appWindow">
+    <div id="titleBar" class="flex items-center justify-between select-none">
+      <div class="flex flex-col">
+        <span class="text-[13px] font-bold text-white tracking-wide">Shazam to Playlist</span>
+        <span class="text-[10px] text-zinc-500 leading-none">v3.0 Release</span>
+      </div>
+      
+      <div class="flex flex-col items-end">
+        <span class="text-[9px] text-zinc-500 font-medium mb-1 cursor-default">разработчик</span>
+        <a href="https://designerpanama.com" target="_blank" class="text-[11px] text-zinc-300 hover:text-blue-400 transition-colors cursor-pointer decoration-transparent font-bold leading-none">
+          designerpanama.com
+        </a>
+      </div>
+    </div>
+
+    <!-- Верхняя часть: Эквалайзер и кнопки управления -->
+    <div class="flex flex-col gap-2.5 p-1 flex-shrink-0">
+      <div id="displayPanel" class="flex flex-col gap-2.5 shadow-inner">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span id="statusDot" class="w-2.5 h-2.5 rounded-full bg-zinc-600 transition-colors"></span>
+            <span id="statusText" class="text-xs font-semibold text-zinc-300">Ожидание...</span>
+          </div>
+          <div class="flex items-center gap-1 font-mono-code text-[11px] text-zinc-400 bg-zinc-800/80 px-2 py-0.5 rounded-full">
+            <span>⏱</span><span id="captureTimer">00:00</span>
+          </div>
+        </div>
+        <div class="w-full relative h-[42px] bg-black/50 rounded-lg overflow-hidden flex items-center justify-center border border-zinc-800/50">
+          <canvas id="visualizerCanvas" width="360" height="42" class="w-full h-full block"></canvas>
+          <div id="canvasOverlayPlaceholder" class="absolute inset-0 flex items-center justify-center pointer-events-none text-[11px] text-zinc-500"></div>
+        </div>
+      </div>
+
+      <div class="px-4 grid grid-cols-12 gap-2">
+        <button id="btnStart" onclick="toggleCapture()" class="col-span-8 flex items-center justify-center gap-2 font-bold cursor-pointer transition bg-gradient-to-br from-blue-600 to-blue-800 text-white rounded-xl py-3 shadow-md hover:brightness-110 text-xs">
+          <svg id="iconStart" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/>
+          </svg>
+          <span id="btnStartLabel">Начать захват</span>
+        </button>
+        <button id="btnStop" onclick="stopCapture()" disabled class="col-span-4 flex items-center justify-center gap-1.5 font-semibold cursor-pointer transition opacity-40 bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-xl py-3 text-xs hover:bg-rose-500/20">
+          <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/></svg>
+          <span>Завершить</span>
+        </button>
+      </div>
+
+      <div class="px-4 pt-2 pb-1 flex items-center justify-between text-xs text-zinc-400 mt-1">
+        <div class="flex items-center gap-4">
+          <button id="tabTracks" onclick="switchTab('tracks')" class="flex items-center gap-1.5 font-semibold text-zinc-200 hover:text-white transition-colors cursor-pointer">
+            <span>Найденные треки</span>
+            <span id="trackCountBadge" class="px-1.5 py-0.5 rounded-full bg-zinc-800 text-[10px] text-zinc-400 font-mono-code">0</span>
+          </button>
+          <button id="tabHistory" onclick="switchTab('history')" class="flex items-center gap-1 font-semibold text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer">
+            <span>История</span>
+          </button>
+        </div>
+        <button id="btnClear" onclick="clearCurrentTab()" class="text-[11px] text-zinc-500 hover:text-zinc-300 hover:underline cursor-pointer transition-colors">Очистить</button>
+      </div>
+    </div>
+
+    <!-- Средняя часть: Скроллируемый список треков / истории -->
+    <div id="trackListContainer" class="modern-scrollbar flex flex-col gap-1.5"></div>
+
+    <!-- Нижняя часть: Кнопка экспорта и дескриптор -->
+    <div class="flex flex-col flex-shrink-0">
+      <div class="px-4 pb-2 pt-1 flex flex-col gap-1.5">
+        <div class="text-[11px] text-zinc-400 flex items-center justify-between px-1">
+          <span>Экспорт плейлиста:</span>
+          <span class="text-zinc-500 text-[10px]">Универсальный перенос</span>
+        </div>
+        
+        <button onclick="copyAndTransfer()" class="w-full flex items-center justify-center gap-2 font-bold cursor-pointer transition bg-zinc-200 text-zinc-900 rounded-xl py-3.5 shadow-md hover:bg-white hover:shadow-lg text-xs">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          <span>Скопировать и открыть TuneMyMusic</span>
+        </button>
+      </div>
+
+      <div class="px-4 py-2 flex items-center justify-center text-[10px] border-t border-zinc-800/50 bg-zinc-950/70 text-zinc-600 rounded-b-xl">
+        <span>Модуль аудио: Windows WASAPI Loopback</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="appToast" class="fixed bottom-12 left-1/2 transform -translate-x-1/2 z-50 bg-zinc-800/95 text-zinc-100 border border-zinc-700/50 px-4 py-2.5 rounded-full text-xs shadow-2xl hidden items-center gap-2 backdrop-blur-md whitespace-nowrap">
+    <span class="text-blue-400">✦</span>
+    <span id="toastText">Уведомление</span>
+  </div>
+
+  <script>
+    let isCapturing = false;
+    let isPaused = false;
+    let timerInterval = null;
+    let startTime = 0;
+    let pausedTimeTotal = 0;
+    let pauseStart = 0;
+    
+    let tracks = []; 
+    let sessions = [];
+    let currentTab = 'tracks'; 
+    let viewingSessionIndex = -1; 
+
+    eel.expose(addTrackFromPython);
+    function addTrackFromPython(id, title, artist) {
+      const colors = ['from-amber-500 to-rose-600', 'from-blue-600 to-indigo-900', 'from-fuchsia-500 to-purple-800', 'from-emerald-500 to-teal-800'];
+      const bg = colors[Math.floor(Math.random() * colors.length)];
+      tracks.push({ id: id, title: title, artist: artist, duration: 'Shazam', bg: bg });
+      if(currentTab === 'tracks') renderTracks();
+      showToast('🎵 Распознан: ' + title);
+    }
+
+    eel.expose(showToastFromPython);
+    function showToastFromPython(msg) { showToast(msg); }
+
+    function switchTab(tab) {
+      currentTab = tab;
+      viewingSessionIndex = -1; 
+      
+      if (tab === 'tracks') {
+        document.getElementById('tabTracks').className = "flex items-center gap-1.5 font-semibold text-zinc-200 hover:text-white transition-colors cursor-pointer";
+        document.getElementById('tabHistory').className = "flex items-center gap-1 font-semibold text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer";
+        document.getElementById('tabHistory').innerHTML = `<span>История</span>`;
+        renderTracks();
+      } else {
+        document.getElementById('tabHistory').className = "flex items-center gap-1 font-semibold text-zinc-200 hover:text-white transition-colors cursor-pointer";
+        document.getElementById('tabTracks').className = "flex items-center gap-1.5 font-semibold text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer";
+        document.getElementById('tabHistory').innerHTML = `<span>История</span>`;
+        renderSessions();
+      }
+    }
+
+    function viewSession(idx) {
+      viewingSessionIndex = idx;
+      const container = document.getElementById('trackListContainer');
+      const sess = sessions[idx];
+      
+      document.getElementById('tabHistory').innerHTML = `<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg><span>Назад</span>`;
+      
+      if (!sess.tracks || sess.tracks.length === 0) {
+        container.innerHTML = `<div class="h-full flex flex-col items-center justify-center text-center p-4"><p class="text-xs text-zinc-400 font-medium">В этой записи нет треков</p></div>`;
+        return;
+      }
+
+      container.innerHTML = sess.tracks.map((track) => {
+        return `<div class="group p-2 rounded-lg flex items-center justify-between transition-all border bg-zinc-900/40 border-zinc-800/40">
+          <div class="flex items-center gap-2.5 truncate">
+            <div class="w-8 h-8 rounded-md bg-gradient-to-br ${track.bg || 'from-zinc-600 to-zinc-800'} flex items-center justify-center flex-shrink-0 shadow-sm text-white/90">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+            </div>
+            <div class="flex flex-col truncate">
+              <span class="text-xs font-semibold text-zinc-200 truncate">${track.title}</span>
+              <span class="text-[11px] text-zinc-500 truncate">${track.artist}</span>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function renderTracks() {
+      const container = document.getElementById('trackListContainer');
+      document.getElementById('trackCountBadge').textContent = tracks.length;
+
+      if (tracks.length === 0) {
+        container.innerHTML = `<div class="h-full flex flex-col items-center justify-center text-center p-4"><svg class="w-7 h-7 text-zinc-700 mb-2 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><p class="text-xs text-zinc-400 font-medium">Список пуст</p></div>`;
+        return;
+      }
+      container.innerHTML = tracks.map((track) => {
+        return `<div class="group p-2 rounded-lg flex items-center justify-between transition-all border bg-zinc-900/40 hover:bg-zinc-800/80 border-zinc-800/40"><div class="flex items-center gap-2.5 truncate"><div class="w-8 h-8 rounded-md bg-gradient-to-br ${track.bg} flex items-center justify-center flex-shrink-0 shadow-sm text-white/90"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg></div><div class="flex flex-col truncate"><span class="text-xs font-semibold text-zinc-200 truncate group-hover:text-blue-400 transition-colors">${track.title}</span><span class="text-[11px] text-zinc-500 truncate">${track.artist}</span></div></div><div class="flex items-center gap-2 flex-shrink-0"><span class="text-[10px] font-mono-code text-zinc-600">${track.duration}</span><button onclick="deleteTrack(${track.id})" class="w-6 h-6 rounded text-zinc-500 hover:text-rose-400 hover:bg-zinc-700/50 flex items-center justify-center transition opacity-0 group-hover:opacity-100"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></div>`;
+      }).join('');
+    }
+
+    function renderSessions() {
+      const container = document.getElementById('trackListContainer');
+      if (sessions.length === 0) {
+        container.innerHTML = `<div class="h-full flex flex-col items-center justify-center text-center p-4"><svg class="w-7 h-7 text-zinc-700 mb-2 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg><p class="text-xs text-zinc-400 font-medium">История пуста</p></div>`;
+        return;
+      }
+      container.innerHTML = sessions.map((sess, idx) => {
+        return `<div onclick="viewSession(${idx})" class="p-2.5 rounded-lg flex flex-col gap-1.5 transition-all border bg-zinc-900/30 border-zinc-800/40 hover:bg-zinc-800/60 cursor-pointer group">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <svg class="w-4 h-4 text-blue-500/70 group-hover:text-blue-400 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <span class="text-xs font-semibold text-zinc-300 group-hover:text-white transition-colors">${sess.name}</span>
+            </div>
+            <span class="text-[10px] text-zinc-500 bg-zinc-800/60 px-2 py-0.5 rounded font-mono-code">${sess.tracks.length} треков</span>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function toggleCapture() {
+      if (!isCapturing) {
+        isCapturing = true; 
+        isPaused = false;
+        startTime = Date.now();
+        pausedTimeTotal = 0;
+        
+        document.getElementById('btnStartLabel').textContent = 'Пауза';
+        document.getElementById('iconStart').innerHTML = '<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>';
+        document.getElementById('btnStart').className = "col-span-8 flex items-center justify-center gap-2 font-bold cursor-pointer transition bg-gradient-to-br from-amber-400 to-amber-600 text-zinc-950 rounded-xl py-3 shadow-md hover:brightness-110 text-xs";
+        
+        document.getElementById('statusText').textContent = 'Идет захват аудио...';
+        document.getElementById('statusText').classList.replace('text-zinc-300', 'text-blue-400');
+        document.getElementById('statusDot').className = 'w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.6)]';
+        
+        document.getElementById('btnStop').disabled = false; 
+        document.getElementById('btnStop').style.opacity = '1';
+        
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+          if (!isPaused) {
+            const elapsedSec = Math.floor((Date.now() - startTime - pausedTimeTotal) / 1000);
+            const m = String(Math.floor(elapsedSec / 60)).padStart(2, '0');
+            const s = String(elapsedSec % 60).padStart(2, '0');
+            document.getElementById('captureTimer').textContent = `${m}:${s}`;
+          }
+        }, 200);
+
+        showToast('Захват системного звука запущен 🎙️');
+        eel.start_capture(); 
+      } 
+      else if (!isPaused) {
+        isPaused = true;
+        pauseStart = Date.now();
+        
+        document.getElementById('btnStartLabel').textContent = 'Продолжить';
+        document.getElementById('iconStart').innerHTML = '<polygon points="5 3 19 12 5 21 5 3"></polygon>';
+        document.getElementById('btnStart').className = "col-span-8 flex items-center justify-center gap-2 font-bold cursor-pointer transition bg-gradient-to-br from-blue-600 to-blue-800 text-white rounded-xl py-3 shadow-md hover:brightness-110 text-xs";
+        
+        document.getElementById('statusText').textContent = 'Захват на паузе';
+        document.getElementById('statusText').classList.replace('text-blue-400', 'text-amber-400');
+        document.getElementById('statusDot').className = 'w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]';
+        
+        eel.pause_capture();
+        showToast('Захват приостановлен ⏸️');
+      }
+      else {
+        isPaused = false;
+        pausedTimeTotal += (Date.now() - pauseStart);
+        
+        document.getElementById('btnStartLabel').textContent = 'Пауза';
+        document.getElementById('iconStart').innerHTML = '<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>';
+        document.getElementById('btnStart').className = "col-span-8 flex items-center justify-center gap-2 font-bold cursor-pointer transition bg-gradient-to-br from-amber-400 to-amber-600 text-zinc-950 rounded-xl py-3 shadow-md hover:brightness-110 text-xs";
+        
+        document.getElementById('statusText').textContent = 'Идет захват аудио...';
+        document.getElementById('statusText').classList.replace('text-amber-400', 'text-blue-400');
+        document.getElementById('statusDot').className = 'w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.6)]';
+        
+        eel.resume_capture();
+      }
+    }
+
+    function stopCapture() {
+      if (!isCapturing) return;
+      
+      const elapsedSec = startTime ? Math.floor((Date.now() - startTime - pausedTimeTotal) / 1000) : 0;
+      if (elapsedSec > 0 && tracks.length > 0) {
+        const d = new Date();
+        const dateStr = `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth()+1).padStart(2, '0')}`;
+        const timeStr = document.getElementById('captureTimer').textContent;
+        const sessionName = `Запись ${dateStr} - ${timeStr}`;
+        sessions.unshift({ name: sessionName, tracks: [...tracks] });
+        eel.save_session(sessionName, tracks);
+      }
+
+      isCapturing = false; 
+      isPaused = false;
+      clearInterval(timerInterval);
+      startTime = 0;
+      pausedTimeTotal = 0;
+      document.getElementById('captureTimer').textContent = `00:00`;
+      
+      document.getElementById('btnStartLabel').textContent = 'Начать захват';
+      document.getElementById('iconStart').innerHTML = '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/>';
+      document.getElementById('btnStart').className = "col-span-8 flex items-center justify-center gap-2 font-bold cursor-pointer transition bg-gradient-to-br from-blue-600 to-blue-800 text-white rounded-xl py-3 shadow-md hover:brightness-110 text-xs";
+      
+      document.getElementById('statusText').textContent = 'Ожидание...';
+      document.getElementById('statusText').classList.remove('text-blue-400', 'text-amber-400');
+      document.getElementById('statusText').classList.add('text-zinc-300');
+      document.getElementById('statusDot').className = 'w-2.5 h-2.5 rounded-full bg-zinc-600';
+      
+      document.getElementById('btnStop').disabled = true; 
+      document.getElementById('btnStop').style.opacity = '0.4';
+      
+      showToast('Захват завершен ⏹️');
+      eel.stop_capture(); 
+      if(currentTab === 'history') { viewingSessionIndex = -1; renderSessions(); }
+    }
+
+    function deleteTrack(id) { 
+      tracks = tracks.filter(t => t.id !== id); 
+      if(currentTab === 'tracks') renderTracks(); 
+      eel.remove_track(id); 
+      showToast('Трек удален'); 
+    }
+    
+    function clearCurrentTab() { 
+      if (currentTab === 'tracks') {
+        tracks = []; renderTracks(); eel.clear_tracks(); showToast('Список треков очищен');
+      } else {
+        sessions = []; viewingSessionIndex = -1; renderSessions(); eel.clear_sessions(); showToast('История очищена');
+      }
+    }
+
+    async function copyAndTransfer() {
+      let listToCopy = (currentTab === 'history' && viewingSessionIndex >= 0) ? sessions[viewingSessionIndex].tracks : tracks;
+      
+      if (!listToCopy || listToCopy.length === 0) { 
+        showToast('⚠️ Список пуст!'); 
+        return; 
+      }
+      
+      try {
+        let text = listToCopy.map(t => `${t.artist} - ${t.title}`).join('\n');
+        await navigator.clipboard.writeText(text);
+        showToast('✅ Список скопирован! Нажмите Ctrl+V на сайте.');
+        setTimeout(() => { window.open('https://www.tunemymusic.com/ru/transfer', '_blank'); }, 1500);
+      } catch (err) { 
+        showToast('❌ Ошибка копирования'); 
+      }
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('appToast');
+      document.getElementById('toastText').textContent = msg;
+      toast.classList.remove('hidden'); toast.classList.add('flex');
+      clearTimeout(toast._timeout);
+      toast._timeout = setTimeout(() => { toast.classList.remove('flex'); toast.classList.add('hidden'); }, 3000);
+    }
+
+    const canvas = document.getElementById('visualizerCanvas');
+    const ctx = canvas.getContext('2d');
+    let frame = 0;
+
+    function drawVisualizer() {
+      frame++; const w = canvas.width; const h = canvas.height; ctx.clearRect(0, 0, w, h);
+      const grad = ctx.createLinearGradient(0, 0, w, 0);
+      grad.addColorStop(0, '#3b82f6'); 
+      grad.addColorStop(0.5, '#1d4ed8'); 
+      grad.addColorStop(1, '#818cf8');
+      
+      ctx.lineWidth = 2.5; ctx.strokeStyle = grad; ctx.beginPath();
+      const points = 30; const slice = w / (points - 1);
+      for (let i = 0; i < points; i++) {
+        const x = i * slice; let amp = (isCapturing && !isPaused) ? (10 + Math.sin(frame * 0.08 + i * 0.4) * 7) : 1.5;
+        const y = h / 2 + Math.sin(frame * 0.12 + i * 0.35) * amp;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      if (isCapturing && !isPaused) {
+        ctx.beginPath(); ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(59, 130, 246, 0.4)';
+        for (let i = 0; i < points; i++) {
+          const x = i * slice; const y = h / 2 + Math.sin(frame * 0.09 - i * 0.3) * 5;
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+      requestAnimationFrame(drawVisualizer);
+    }
+
+    window.onload = async function() { 
+      let data = await eel.get_history_data()();
+      if (data) {
+        const colors = ['from-amber-500 to-rose-600', 'from-blue-600 to-indigo-900', 'from-fuchsia-500 to-purple-800', 'from-emerald-500 to-teal-800'];
+        if (data.tracks) {
+          tracks = data.tracks.map(t => {
+            return { id: t.id, title: t.title, artist: t.artist, duration: 'Shazam', bg: colors[Math.floor(Math.random() * colors.length)] };
+          });
+        }
+        if (data.sessions) sessions = data.sessions;
+      }
+      renderTracks(); 
+      drawVisualizer(); 
+    };
+  </script>
+</body>
+</html>
