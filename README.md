@@ -9,6 +9,8 @@
 
 <p align="center">
   <img src="screenshot.png" alt="Shazam to Playlist UI" width="420">
+  <img width="868" height="788" alt="playlist_txt" src="https://github.com/user-attachments/assets/116bb161-ad1e-4488-9c4b-d154ee9536fd" />
+<img width="938" height="492" alt="ctrlv" src="https://github.com/user-attachments/assets/ce9827db-3d0c-4ff2-9f61-e2b32dd1ed65" />
 </p>
 
 ---
